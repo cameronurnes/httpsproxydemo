@@ -1,2 +1,2 @@
 # httpsproxydemo
-Usage: java HttpClientWithCertProxyDemo <certPath> <certPassword> <proxyHost> <proxyPort> <targetUrl>
+Usage: "java HttpClientWithCertProxyDemo \<certPath\> \<certPassword\> \<proxyHost\> \<proxyPort\> \<targetUrl\>"
