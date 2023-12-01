@@ -1,11 +1,15 @@
-import org.apache.http.HttpHost;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.ssl.SSLContextBuilder;
+import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.ssl.SSLContextBuilder;
+import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder;
+
+import javax.net.ssl.SSLContext;
 import java.io.FileInputStream;
 import java.security.KeyStore;
 
@@ -16,6 +20,7 @@ public class HttpClientWithCertProxyDemo {
             System.out.println("Usage: java HttpClientWithCertProxyDemo <certPath> <certPassword> <proxyHost> <proxyPort> <targetUrl>");
             return;
         }
+
         String certPath = args[0];
         String certPassword = args[1];
         String proxyHost = args[2];
@@ -29,29 +34,43 @@ public class HttpClientWithCertProxyDemo {
         }
 
         System.out.println("Setting up SSL context with the client certificate");
-        SSLContextBuilder sslContextBuilder = new SSLContextBuilder();
-        sslContextBuilder.loadKeyMaterial(keyStore, certPassword.toCharArray());
-        SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(
-                sslContextBuilder.build());
+        SSLContext sslContext = SSLContextBuilder.create()
+                .loadKeyMaterial(keyStore, certPassword.toCharArray())
+                .build();
 
         System.out.println("Configuring proxy: " + proxyHost + ":" + proxyPort);
-        HttpHost proxy = new HttpHost(proxyHost, proxyPort, "https");  //adding https argument here is key
+        var sslsf = SSLConnectionSocketFactoryBuilder.create()
+                .setSslContext(sslContext)
+                .build();
 
-        System.out.println("Creating and configuring HttpClient");
-        CloseableHttpClient httpClient = HttpClients.custom()
+        var connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
                 .setSSLSocketFactory(sslsf)
                 .build();
 
-        System.out.println("Creating HTTP GET request to: " + targetUrl);
-        HttpGet request = new HttpGet(targetUrl);
-        RequestConfig config = RequestConfig.custom()
-                .setProxy(proxy)
-                .build();
-        request.setConfig(config);
+        HttpHost proxy = new HttpHost("https", proxyHost, proxyPort);
 
-        System.out.println("Executing the request");
-        try (CloseableHttpResponse response = httpClient.execute(request)) {
-            System.out.println("Received response with status: " + response.getStatusLine());
+        System.out.println("Creating and configuring HttpClient");
+        try (CloseableHttpClient httpClient = HttpClients.custom()
+                .setConnectionManager(connectionManager)
+                .build()) {
+
+            HttpGet request = new HttpGet(targetUrl);
+            RequestConfig config = RequestConfig.custom()
+                    .setProxy(proxy)
+                    .build();
+            request.setConfig(config);
+
+            System.out.println("Executing the request");
+            try (CloseableHttpResponse response = httpClient.execute(request)) {
+                System.out.println("Received response with status: " + response.getCode());
+                // Printing the response body
+                String responseBody = EntityUtils.toString(response.getEntity());
+                System.out.println("Response Body: " + responseBody);
+
+                // Ensure the response body is fully consumed
+                EntityUtils.consume(response.getEntity());
+            }
         }
     }
 }
+
