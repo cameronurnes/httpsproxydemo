@@ -35,7 +35,7 @@ public class HttpClientWithCertProxyDemo {
                 sslContextBuilder.build());
 
         System.out.println("Configuring proxy: " + proxyHost + ":" + proxyPort);
-        HttpHost proxy = new HttpHost(proxyHost, proxyPort, "https");
+        HttpHost proxy = new HttpHost(proxyHost, proxyPort, "https");  //adding https argument here is key
 
         System.out.println("Creating and configuring HttpClient");
         CloseableHttpClient httpClient = HttpClients.custom()
